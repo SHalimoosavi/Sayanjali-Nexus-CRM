@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Backend data
+backend/data/*.db
+backend/.env
+backend/backups/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Electron
+electron/dist/
+electron/out/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# Logs
+*.log

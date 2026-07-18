@@ -1,0 +1,22 @@
+{
+  "name": "sayanjali-nexus-crm-desktop",
+  "version": "0.1.0",
+  "description": "Desktop shell for Sayanjali Nexus CRM",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.1.2",
+    "electron-builder": "^25.0.5"
+  },
+  "build": {
+    "appId": "com.sayanjalinexus.crm",
+    "productName": "Sayanjali Nexus CRM",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "../frontend/dist/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  }
+}
