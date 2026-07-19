@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchLeads, fetchVerticals } from "../../api/leads";
-import { fetchOpportunities } from "../../api/opportunities";
 import { TrendingUp, Users, Briefcase, Clock } from "lucide-react";
 
 function KpiCard({ label, value, icon: Icon, hint }: { label: string; value: string; icon: any; hint?: string }) {
@@ -16,19 +15,12 @@ function KpiCard({ label, value, icon: Icon, hint }: { label: string; value: str
   );
 }
 
-const formatINR = (value: number) =>
-  new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
-
 export default function DashboardPage() {
   const { data: leadsData } = useQuery({
     queryKey: ["leads", "dashboard"],
     queryFn: () => fetchLeads({ page: 1, page_size: 5 }),
   });
   const { data: verticals } = useQuery({ queryKey: ["verticals"], queryFn: fetchVerticals });
-  const { data: opportunitiesData } = useQuery({
-    queryKey: ["opportunities", "dashboard"],
-    queryFn: () => fetchOpportunities({ page: 1, page_size: 1 }),
-  });
 
   return (
     <div className="p-8 max-w-6xl">
@@ -41,13 +33,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Open Leads" value={String(leadsData?.total ?? "—")} icon={Users} hint="Across all verticals" />
         <KpiCard label="Active Verticals" value={String(verticals?.filter(v => v).length ?? "—")} icon={Briefcase} hint="Onboarded business lines" />
-        <KpiCard
-          label="Pipeline Value"
-          value={opportunitiesData ? `₹${formatINR(opportunitiesData.open_value_total)}` : "—"}
-          icon={TrendingUp}
-          hint={`${opportunitiesData?.total ?? 0} open opportunities`}
-        />
-        <KpiCard label="Follow-ups Due" value="—" icon={Clock} hint="Reminders module not wired yet" />
+        <KpiCard label="Pipeline Value" value="₹0" icon={TrendingUp} hint="Wire up opportunities module" />
+        <KpiCard label="Follow-ups Due" value="0" icon={Clock} hint="Today" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

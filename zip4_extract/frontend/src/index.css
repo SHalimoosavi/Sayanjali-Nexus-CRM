@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+body {
+  @apply bg-ink text-white/90 font-body antialiased;
+}
+
+::selection { background: #C9A15E33; }
+
+/* Visible keyboard focus everywhere -- accessibility floor */
+:focus-visible {
+  outline: 2px solid #C9A15E;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #2B2E3D; border-radius: 4px; }

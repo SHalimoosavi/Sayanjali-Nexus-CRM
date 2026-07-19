@@ -49,7 +49,3 @@ export const updateTask = async (id: string, payload: Partial<Task>) => {
   const { data } = await api.patch(`/tasks/${id}`, payload);
   return data as Task;
 };
-
-export const deleteTask = async (id: string) => {
-  await api.delete(`/tasks/${id}`);
-};
