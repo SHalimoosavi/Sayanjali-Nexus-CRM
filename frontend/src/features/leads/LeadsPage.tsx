@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchLeads, fetchVerticals, createLead, convertLeadToClient } from "../../api/leads";
-import { Plus, X, ArrowRight } from "lucide-react";
+import {
+  fetchLeads, fetchVerticals, createLead, convertLeadToClient,
+  bulkUpdateLeads, bulkDeleteLeads, importLeadsCSV, exportLeadsCSV, Lead,
+} from "../../api/leads";
+import { Plus, X, ArrowRight, Upload, Download, Trash2, Users2 } from "lucide-react";
+import LeadDetailDrawer from "./LeadDetailDrawer";
 
 const STAGE_COLORS: Record<string, string> = {
   New: "bg-signal/10 text-signal border-signal/20",
@@ -16,6 +20,10 @@ const STAGE_COLORS: Record<string, string> = {
 export default function LeadsPage() {
   const [verticalFilter, setVerticalFilter] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
   const { data: verticals } = useQuery({ queryKey: ["verticals"], queryFn: fetchVerticals });
@@ -25,7 +33,8 @@ export default function LeadsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: createLead,
+    mutationFn: ({ payload, force }: { payload: Partial<Lead>; force?: boolean }) =>
+      createLead(force ? { ...payload } : payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       setShowModal(false);
@@ -40,6 +49,48 @@ export default function LeadsPage() {
     },
   });
 
+  const bulkStageMutation = useMutation({
+    mutationFn: (stage: string) => bulkUpdateLeads(Array.from(selected), { stage }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setSelected(new Set());
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: () => bulkDeleteLeads(Array.from(selected)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setSelected(new Set());
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => importLeadsCSV(verticalFilter || verticals?.[0]?.id || "", file),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setImportResult(
+        `Imported ${result.created} leads. Skipped ${result.skipped_duplicates} duplicates.` +
+        (result.errors.length ? ` ${result.errors.length} row(s) had errors.` : "")
+      );
+    },
+  });
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!leadsData?.items?.length) return;
+    setSelected((prev) =>
+      prev.size === leadsData.items.length ? new Set() : new Set(leadsData.items.map((l) => l.id))
+    );
+  };
+
   return (
     <div className="p-8 max-w-6xl">
       <div className="flex items-start justify-between mb-6">
@@ -47,13 +98,47 @@ export default function LeadsPage() {
           <div className="text-xs tracking-[0.2em] text-brass font-mono mb-1">PIPELINE</div>
           <h1 className="font-display text-3xl text-white">Leads</h1>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-brass hover:bg-brassSoft text-ink text-sm font-medium rounded-md px-4 py-2 transition-colors"
-        >
-          <Plus size={15} /> New lead
-        </button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) importMutation.mutate(file);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 text-muted hover:text-white border border-border rounded-md px-3 py-2 text-sm transition-colors"
+            title="Import CSV"
+          >
+            <Upload size={14} /> Import
+          </button>
+          <button
+            onClick={() => exportLeadsCSV(verticalFilter || undefined)}
+            className="flex items-center gap-2 text-muted hover:text-white border border-border rounded-md px-3 py-2 text-sm transition-colors"
+            title="Export CSV"
+          >
+            <Download size={14} /> Export
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-brass hover:bg-brassSoft text-ink text-sm font-medium rounded-md px-4 py-2 transition-colors"
+          >
+            <Plus size={15} /> New lead
+          </button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className="flex items-center justify-between text-sm bg-brass/10 border border-brass/20 text-brass rounded-md px-4 py-2.5 mb-4">
+          {importResult}
+          <button onClick={() => setImportResult(null)} className="text-brass/70 hover:text-brass"><X size={14} /></button>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
@@ -77,10 +162,46 @@ export default function LeadsPage() {
         ))}
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 bg-surface border border-brass/30 rounded-lg px-4 py-2.5 mb-4">
+          <span className="text-xs text-brass flex items-center gap-1.5">
+            <Users2 size={13} /> {selected.size} selected
+          </span>
+          <select
+            onChange={(e) => e.target.value && bulkStageMutation.mutate(e.target.value)}
+            defaultValue=""
+            className="text-xs bg-ink border border-border rounded-md px-2 py-1.5 text-white"
+          >
+            <option value="" disabled>Move to stage…</option>
+            {["New", "Contacted", "Qualified", "Proposal Sent", "Negotiation", "Won", "Lost"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => bulkDeleteMutation.mutate()}
+            disabled={bulkDeleteMutation.isPending}
+            className="flex items-center gap-1 text-xs text-danger hover:text-danger/80 transition-colors ml-auto"
+          >
+            <Trash2 size={13} /> Delete selected
+          </button>
+          <button onClick={() => setSelected(new Set())} className="text-muted hover:text-white">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
+              <th className="px-4 py-3 w-8">
+                <input
+                  type="checkbox"
+                  checked={!!leadsData?.items?.length && selected.size === leadsData.items.length}
+                  onChange={toggleSelectAll}
+                  className="accent-brass"
+                />
+              </th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Company</th>
               <th className="px-4 py-3 font-medium">Phone</th>
@@ -91,14 +212,24 @@ export default function LeadsPage() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
             )}
             {!isLoading && !leadsData?.items?.length && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No leads yet. Create one to get started.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">No leads yet. Create one to get started.</td></tr>
             )}
             {leadsData?.items?.map((lead) => (
               <tr key={lead.id} className="border-b border-border last:border-0 hover:bg-white/[0.02]">
-                <td className="px-4 py-3 text-white">{lead.full_name}</td>
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(lead.id)}
+                    onChange={() => toggleSelected(lead.id)}
+                    className="accent-brass"
+                  />
+                </td>
+                <td className="px-4 py-3 text-white cursor-pointer" onClick={() => setActiveLead(lead)}>
+                  {lead.full_name}
+                </td>
                 <td className="px-4 py-3 text-white/70">{lead.company_name ?? "—"}</td>
                 <td className="px-4 py-3 text-white/70 font-mono text-xs">{lead.phone ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -130,15 +261,28 @@ export default function LeadsPage() {
         <NewLeadModal
           verticals={verticals ?? []}
           onClose={() => setShowModal(false)}
-          onSubmit={(payload: Partial<import("../../api/leads").Lead>) => createMutation.mutate(payload)}
+          onSubmit={(payload: Partial<Lead>, force?: boolean) => createMutation.mutate({ payload, force })}
           submitting={createMutation.isPending}
+          conflictMatches={
+            (createMutation.error as any)?.response?.status === 409
+              ? (createMutation.error as any).response.data.detail.matches
+              : null
+          }
         />
       )}
+
+      {activeLead && <LeadDetailDrawer lead={activeLead} onClose={() => setActiveLead(null)} />}
     </div>
   );
 }
 
-function NewLeadModal({ verticals, onClose, onSubmit, submitting }: any) {
+function NewLeadModal({ verticals, onClose, onSubmit, submitting, conflictMatches }: {
+  verticals: { id: string; name: string }[];
+  onClose: () => void;
+  onSubmit: (payload: Partial<Lead>, force?: boolean) => void;
+  submitting: boolean;
+  conflictMatches: { id: string; full_name: string; matched_on: string }[] | null;
+}) {
   const [form, setForm] = useState({ full_name: "", company_name: "", phone: "", vertical_id: verticals[0]?.id ?? "" });
 
   return (
@@ -148,6 +292,22 @@ function NewLeadModal({ verticals, onClose, onSubmit, submitting }: any) {
           <h3 className="font-display text-xl text-white">New lead</h3>
           <button onClick={onClose} className="text-muted hover:text-white"><X size={18} /></button>
         </div>
+
+        {conflictMatches && (
+          <div className="bg-warn/10 border border-warn/20 rounded-md px-3 py-2.5 mb-4 text-xs">
+            <div className="text-warn font-medium mb-1">Possible duplicate</div>
+            <div className="text-white/70">
+              Matches an existing lead: {conflictMatches.map((m) => m.full_name).join(", ")}
+            </div>
+            <button
+              onClick={() => onSubmit(form, true)}
+              className="text-warn hover:text-warn/80 underline mt-1.5"
+            >
+              Create anyway
+            </button>
+          </div>
+        )}
+
         <form
           className="space-y-4"
           onSubmit={(e) => { e.preventDefault(); onSubmit(form); }}
@@ -159,7 +319,7 @@ function NewLeadModal({ verticals, onClose, onSubmit, submitting }: any) {
               onChange={(e) => setForm({ ...form, vertical_id: e.target.value })}
               className="w-full mt-1 bg-ink border border-border rounded-md px-3 py-2 text-sm text-white"
             >
-              {verticals.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+              {verticals.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           </div>
           <div>

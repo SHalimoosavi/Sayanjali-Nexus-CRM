@@ -46,6 +46,50 @@ class LeadNoteCreate(BaseModel):
     note: str
 
 
+class LeadNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    note: str
+    created_by: Optional[str] = None
+    created_at: datetime
+
+
+class LeadActivityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    activity_type: str
+    description: Optional[str] = None
+    created_at: datetime
+
+
+class DuplicateMatch(BaseModel):
+    id: str
+    full_name: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    matched_on: str  # "phone" or "email"
+
+
+class BulkLeadUpdate(BaseModel):
+    ids: list[str]
+    updates: LeadUpdate
+
+
+class BulkLeadDelete(BaseModel):
+    ids: list[str]
+
+
+class BulkActionResult(BaseModel):
+    affected: int
+    not_found: list[str]
+
+
+class CSVImportResult(BaseModel):
+    created: int
+    skipped_duplicates: int
+    errors: list[str]
+
+
 class PaginatedLeads(BaseModel):
     total: int
     page: int

@@ -2,7 +2,7 @@
 
 **Prepared for:** Sayanjali Nexus Private Limited
 **Founder & Managing Director:** Syed Ali Hasan Moosavi
-**Status:** v0.3 — Phase 1–2 audited and hardened; Phase 3 (Opportunities, Documents) built and tested
+**Status:** v0.4 — Phase 4 (module completion) in progress: Leads fully complete and tested
 
 ---
 
@@ -205,7 +205,7 @@ Every future module (Communications, Reports, Finance API…) replicates this ex
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 1 | Lead Management | **Built & tested** | Full CRUD, notes, activity timeline, pipeline stage validation, one-click convert-to-client |
+| 1 | Lead Management | **Built & tested** | Full CRUD, notes (list+create), full timeline exposure, pipeline stage validation, one-click convert-to-client, **duplicate detection (phone/email, with force-override), CSV import (skips duplicates, reports row errors) and export, bulk update (stage/assign) and bulk delete** |
 | 2 | Client Management | **Built & tested** | Full CRUD, nested contacts, vertical assignment, lead-conversion endpoint |
 | 3 | Contact Management | **Built & tested** | Nested under Clients (`/clients/{id}/contacts`); carried over automatically on lead conversion |
 | 4 | Opportunity Management | **Built & tested** | Full CRUD + explicit mark-won/mark-lost actions; winning a client-linked opportunity auto-creates a starter Project |
@@ -392,6 +392,64 @@ graph TB
     DB -.future.-> CLOUD
     SVC -.future.-> AI
 ```
+
+---
+
+## 26. Phase 4–10 Master Roadmap
+
+This is the full scope requested for the CRM's maturity path beyond the initial 9 modules — documented here as the single source of truth so progress can be tracked honestly across sessions, rather than promising everything at once and delivering partial or untested work.
+
+**Ground rule carried over from every phase so far:** nothing is marked done until it's been tested against a live server, not just written. Bulk features get bulk-scale tests (e.g. duplicate detection tested with an actual duplicate, not just "the endpoint exists").
+
+### Phase 4 — CRM Core Completion
+| Area | Item | Status |
+|---|---|---|
+| Leads | Timeline/history | ✅ Done — `GET /leads/{id}/timeline` |
+| Leads | Notes | ✅ Done — `GET`/`POST /leads/{id}/notes` |
+| Leads | Attachments | ✅ Done (Phase 3 Documents module already supports `entity_type=lead`) |
+| Leads | Duplicate detection | ✅ Done — phone/email match, 409 on conflict, `force=true` override |
+| Leads | Import CSV | ✅ Done — skips existing duplicates, reports per-row errors |
+| Leads | Export CSV | ✅ Done |
+| Leads | Bulk edit | ✅ Done — `PATCH /leads/bulk` |
+| Leads | Bulk assign | ✅ Done (same endpoint — set `owner_id` in the bulk update payload) |
+| Leads | Bulk delete | ✅ Done — `POST /leads/bulk-delete`, reports not-found IDs |
+| Clients | Complete profile | ✅ Done (Phase 1–2) |
+| Clients | Contact persons | ✅ Done (Phase 1–2) |
+| Clients | Addresses | ✅ Done (`CompanyBranch` model, Phase 1) |
+| Clients | Contracts | ✅ Done (Documents module, `category="contract"`, `entity_type=client`) |
+| Clients | Client notes | 🔜 Not started — needs a `ClientNote` model + migration (mirrors `LeadNote`) |
+| Clients | Client timeline | 🔜 Not started — needs a `ClientActivity` model + migration (mirrors `LeadActivity`) |
+| Projects | Kanban board | 🔜 Not started (frontend — stage-based drag/drop over existing `ProjectStage` data) |
+| Projects | Gantt chart | 🔜 Not started |
+| Projects | Milestones | ✅ Done (`ProjectStage`, Phase 1) — no dedicated Gantt view yet |
+| Projects | Budget tracking | 🔜 Partial — `budget` field exists, no spend-vs-budget reporting |
+| Projects | Time tracking | 🔜 Not started — needs a `TimeEntry` model |
+| Projects | Completion forecasting | 🔜 Not started |
+| Tasks | Drag & drop Kanban | 🔜 Not started (frontend) |
+| Tasks | Comments | ✅ Done (Phase 2) |
+| Tasks | Mentions | 🔜 Not started |
+| Tasks | Checklist | ✅ Done (parent/child subtasks, fixed in the Phase 1–2 audit) |
+| Tasks | Recurring tasks | 🔜 Partial — `is_recurring`/`recurrence_rule` fields exist, no scheduler generates the next occurrence |
+| Tasks | Notifications | 🔜 Not started (`Notification` model exists, unused) |
+| Tasks | File attachments | ✅ Done (Documents module, `entity_type=task`) |
+
+### Phase 5 — Communications Hub
+Not started. Needs `CallLog`/`EmailLog`/`SMSLog` tables (WhatsApp already partially covered by `whatsapp_number` fields) and a unified per-client timeline view merging Documents + Tasks + Opportunities + Projects + Meetings + the new comms logs into one feed — most of the underlying data already exists per-module; this is primarily an aggregation layer.
+
+### Phase 6 — Sales Pipeline Upgrade
+Lead→Opportunity→Won/Lost is built (Phase 3) including auto-project-creation on win. Not yet built: automatic Invoice creation on won opportunities (Invoice/Payment models exist from Phase 1, no auto-trigger yet), pipeline analytics, revenue forecasting, sales velocity, win ratio, loss-reason reporting.
+
+### Phase 7 — Calendar
+Not started. `Meeting`/`MeetingNote` models exist (Phase 1) with no calendar UI. Google/Outlook sync is a meaningfully large scope on its own (OAuth, webhook sync) — worth scoping as its own mini-project when reached.
+
+### Phase 8 — Documents Enhancement
+Versioning, polymorphic attachment, and download are built (Phase 3). Not started: folder hierarchy, PDF/image/Office preview, drag-and-drop upload UI, OCR, full-text search.
+
+### Phase 9 — Reports
+Not started.
+
+### Phase 10 — Role-Specific Dashboards
+Not started. One dashboard per role (Founder/CEO, Sales, HR, PM, Finance, Support) instead of one generic dashboard — the RBAC foundation (Section 5A) already knows what each role can see, so this is largely a frontend routing/widget-selection exercise once the underlying data (Reports, Communications) exists to populate role-specific widgets.
 
 ---
 
