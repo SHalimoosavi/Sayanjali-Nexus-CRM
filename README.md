@@ -38,14 +38,16 @@ cd ../electron && npm install && npm start
 - Full database schema (35 tables) — Users/Roles/Permissions, Business Verticals, Clients/Contacts/Companies, Lead pipeline, Projects/Tasks, Meetings, Invoices/Payments, Tags, Attachments, Notifications, Audit Log
 - Working Alembic migrations (`backend/alembic/versions/`)
 - JWT auth with refresh tokens + granular RBAC (`require_permission("leads.create")` style)
-- Fully working **Leads module** end-to-end (API + repository/service layers + React UI) — this is the reference pattern for every other module
+- **Leads, Clients, and Projects/Tasks modules — fully working end-to-end** (API + repository/service layers + React UI), including two real business rules, not just CRUD:
+  - **Convert Lead → Client** in one click: carries the contact across, links the vertical, preserves the original lead's history
+  - **Project progress auto-recalculates** from task completion — never hand-edited, can't drift out of sync
 - Business Verticals module — add a new vertical as a data row, zero migrations
-- React + TypeScript + Tailwind frontend shell with sidebar nav, auth flow, dashboard
+- React + TypeScript + Tailwind frontend shell with sidebar nav, auth flow, dashboard, and an inline expandable task checklist on each project
 - Seed script with the company's 29 verticals, 11 roles, and granular permissions pre-loaded
 
 ## What's next (see roadmap in the SDD)
 
-Clients, Projects, Tasks, Communication Center, Documents, Reporting, and the AI module all follow the exact same backend pattern already proven by Leads (`model → schema → repository → service → router`) and the exact same frontend pattern (`api/*.ts → feature page`). See `CONTRIBUTING.md`.
+Communications, Documents, Reporting, Opportunities, and Finance all follow the exact same backend pattern already proven by Leads/Clients/Projects (`model → schema → repository → service → router`) and the exact same frontend pattern (`api/*.ts → feature page`). See `CONTRIBUTING.md`.
 
 ## Structure
 

@@ -39,11 +39,11 @@ class TimestampMixin:
 class AuditMixin:
     @declared_attr
     def created_by(cls):
-        return Column(String(36), ForeignKey("users.id"), nullable=True)
+        return Column(String(36), ForeignKey("users.id", use_alter=True, name=f"fk_{cls.__tablename__}_created_by"), nullable=True)
 
     @declared_attr
     def updated_by(cls):
-        return Column(String(36), ForeignKey("users.id"), nullable=True)
+        return Column(String(36), ForeignKey("users.id", use_alter=True, name=f"fk_{cls.__tablename__}_updated_by"), nullable=True)
 
 
 class SoftDeleteMixin:

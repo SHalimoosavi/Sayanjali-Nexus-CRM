@@ -60,6 +60,8 @@ The CRM becomes the single operating surface for the Founder, Directors, and eve
 - Converting a Lead to a Client sets `is_converted=True` and links `converted_client_id`; the Lead record is never deleted, only marked converted (soft-delete pattern applies everywhere — nothing is ever hard-deleted from a reporting table).
 - Founder and Director roles bypass granular permission checks; every other role is evaluated against `role_permissions ∪ user_permissions`.
 - Every write to a tracked entity should emit an `AuditLog` row (wired for Leads today via `LeadActivity`; generalize to `AuditLog` as more modules land — see Section 20).
+- **Converting a Lead to a Client** (built in Phase 2) creates the Client, carries the lead's contact details across as the primary `Contact`, links the originating `BusinessVertical`, and marks the Lead `is_converted=True` — the Lead row is never deleted, so its notes/activity history remain queryable.
+- **`Project.progress_percent` is never hand-edited.** It's derived server-side from `(completed tasks / total tasks)` any time a project-linked task's status changes, so the dashboard KPI can't drift out of sync with the task board.
 
 ---
 
@@ -176,12 +178,12 @@ Every future module (Clients, Projects, Tasks, Invoices…) replicates this exac
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 1 | Lead Management | **Built & tested** | Full CRUD, notes, activity timeline, pipeline stage validation |
-| 2 | Client Management | Schema done, API pending | `Client/Company/Contact` models live; router follows Leads pattern |
-| 3 | Contact Management | Schema done, API pending | |
+| 1 | Lead Management | **Built & tested** | Full CRUD, notes, activity timeline, pipeline stage validation, one-click convert-to-client |
+| 2 | Client Management | **Built & tested** | Full CRUD, nested contacts, vertical assignment, lead-conversion endpoint |
+| 3 | Contact Management | **Built & tested** | Nested under Clients (`/clients/{id}/contacts`); carried over automatically on lead conversion |
 | 4 | Opportunity Management | Schema done, API pending | `SalesOpportunity` model live |
-| 5 | Project Management | Schema done, API pending | `Project/ProjectStage/ProjectTask` models live |
-| 6 | Task Management | Schema done, API pending | Recurring-task field present, scheduler not yet wired |
+| 5 | Project Management | **Built & tested** | Full CRUD, stages, auto-recalculated progress from task completion |
+| 6 | Task Management | **Built & tested** | CRUD, comments, project-linked and standalone tasks, drives project progress |
 | 7 | Team Management | Schema done, API pending | `Team`, `team_members` live |
 | 8 | Employee Directory | Schema done, API pending | `Employee` model live |
 | 9 | Communication Center | Planned | Needs `EmailLog/CallLog/WhatsAppLog/SMSLog` tables (Section 20) |
@@ -265,7 +267,7 @@ SQLite's single-file nature makes this simple by design:
 
 - **Backend:** Pytest + httpx `TestClient` against an in-memory SQLite DB per test module. Pattern established: spin up `Base.metadata.create_all`, seed minimal fixtures, hit routers directly.
 - **Frontend:** Vitest for component/unit tests; Playwright for the critical E2E path (login → create lead → see it in the list) once more modules land.
-- **What's verified today (manually, in this build):** schema creation, Alembic autogeneration (35 tables), seed script, full login→create-lead→list-leads round trip via live HTTP calls, frontend `tsc` typecheck, and a full Vite production build — all passing.
+- **What's verified today (manually, in this build):** schema creation, Alembic autogeneration (35 tables, zero drift after Phase 2's service-layer additions), seed script, and a full live-HTTP regression covering: login → create lead → convert lead to client (contact carried over, vertical linked, lead preserved) → create project → create two tasks → mark one done → confirm project progress auto-recalculates to 50% → add a task comment. Frontend: `tsc` typecheck and a full Vite production build, both clean, for Leads/Clients/Projects/Dashboard.
 
 ## 18. Security Design
 
@@ -323,7 +325,8 @@ Vertical scaling (more verticals, more data) is solved at the schema level today
 | 4 | Authentication + RBAC | ✅ Done |
 | 5 | Frontend (Leads + Dashboard reference) | ✅ Done |
 | 6 | Electron packaging | ✅ Scaffolded, untested on Windows hardware |
-| 7 | Remaining modules (Clients, Projects, Tasks, Comms, Docs, Reports) | 🔜 Next |
+| 6.5 | Clients, Projects, Tasks modules | ✅ Done — full CRUD + lead conversion + auto progress tracking |
+| 7 | Remaining modules (Communications, Documents, Reports, Opportunities, Finance) | 🔜 Next |
 | 8 | AI integration | 🔜 Planned |
 | 9 | Optimization, automated backups, notifications scheduler | 🔜 Planned |
 | 10 | Production release | 🔜 Planned |

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchLeads, fetchVerticals, createLead } from "../../api/leads";
-import { Plus, X } from "lucide-react";
+import { fetchLeads, fetchVerticals, createLead, convertLeadToClient } from "../../api/leads";
+import { Plus, X, ArrowRight } from "lucide-react";
 
 const STAGE_COLORS: Record<string, string> = {
   New: "bg-signal/10 text-signal border-signal/20",
@@ -29,6 +29,14 @@ export default function LeadsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       setShowModal(false);
+    },
+  });
+
+  const convertMutation = useMutation({
+    mutationFn: convertLeadToClient,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clients"] });
     },
   });
 
@@ -78,14 +86,15 @@ export default function LeadsPage() {
               <th className="px-4 py-3 font-medium">Phone</th>
               <th className="px-4 py-3 font-medium">Stage</th>
               <th className="px-4 py-3 font-medium">Priority</th>
+              <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">Loading…</td></tr>
             )}
             {!isLoading && !leadsData?.items?.length && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">No leads yet. Create one to get started.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No leads yet. Create one to get started.</td></tr>
             )}
             {leadsData?.items?.map((lead) => (
               <tr key={lead.id} className="border-b border-border last:border-0 hover:bg-white/[0.02]">
@@ -98,6 +107,19 @@ export default function LeadsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-white/70 capitalize">{lead.priority}</td>
+                <td className="px-4 py-3 text-right">
+                  {!lead.is_converted ? (
+                    <button
+                      onClick={() => convertMutation.mutate(lead.id)}
+                      disabled={convertMutation.isPending}
+                      className="text-xs flex items-center gap-1 ml-auto text-brass hover:text-brassSoft transition-colors disabled:opacity-40"
+                    >
+                      Convert to client <ArrowRight size={12} />
+                    </button>
+                  ) : (
+                    <span className="text-xs text-muted">Converted</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

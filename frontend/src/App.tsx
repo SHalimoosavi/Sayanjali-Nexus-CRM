@@ -4,6 +4,8 @@ import LoginPage from "./features/auth/LoginPage";
 import AppLayout from "./components/layout/AppLayout";
 import DashboardPage from "./features/dashboard/DashboardPage";
 import LeadsPage from "./features/leads/LeadsPage";
+import ClientsPage from "./features/clients/ClientsPage";
+import ProjectsPage from "./features/projects/ProjectsPage";
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -36,8 +38,8 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="leads" element={<LeadsPage />} />
-        <Route path="clients" element={<PlaceholderPage title="Clients" />} />
-        <Route path="projects" element={<PlaceholderPage title="Projects" />} />
+        <Route path="clients" element={<ClientsPage />} />
+        <Route path="projects" element={<ProjectsPage />} />
         <Route path="tasks" element={<PlaceholderPage title="Tasks" />} />
         <Route path="communications" element={<PlaceholderPage title="Communication Center" />} />
         <Route path="calendar" element={<PlaceholderPage title="Calendar" />} />

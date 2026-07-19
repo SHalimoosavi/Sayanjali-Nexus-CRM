@@ -41,6 +41,11 @@ export const createLead = async (payload: Partial<Lead>) => {
   return data as Lead;
 };
 
+export const convertLeadToClient = async (leadId: string) => {
+  const { data } = await api.post(`/clients/convert-lead/${leadId}`);
+  return data;
+};
+
 export const updateLead = async (id: string, payload: Partial<Lead>) => {
   const { data } = await api.patch(`/leads/${id}`, payload);
   return data as Lead;
