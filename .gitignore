@@ -10,6 +10,8 @@ venv/
 backend/data/*.db
 backend/.env
 backend/backups/
+backend/storage/*
+!backend/storage/.gitkeep
 
 # Node
 node_modules/

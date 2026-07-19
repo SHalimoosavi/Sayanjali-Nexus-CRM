@@ -18,7 +18,7 @@ def create_lead(payload: LeadCreate, db: Session = Depends(get_db), current_user
     return service.create_lead(payload.model_dump(), created_by=current_user.id)
 
 
-@router.get("", response_model=PaginatedLeads)
+@router.get("", response_model=PaginatedLeads, dependencies=[Depends(require_permission("leads.read"))])
 def list_leads(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
@@ -33,7 +33,7 @@ def list_leads(
     return PaginatedLeads(total=total, page=page, page_size=page_size, items=items)
 
 
-@router.get("/{lead_id}", response_model=LeadOut)
+@router.get("/{lead_id}", response_model=LeadOut, dependencies=[Depends(require_permission("leads.read"))])
 def get_lead(lead_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return LeadService(db).get_lead(lead_id)
 

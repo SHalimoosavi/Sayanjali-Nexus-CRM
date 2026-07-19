@@ -20,7 +20,7 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db), curren
     return ProjectService(db).create_project(payload.model_dump(), created_by=current_user.id)
 
 
-@router.get("", response_model=PaginatedProjects)
+@router.get("", response_model=PaginatedProjects, dependencies=[Depends(require_permission("projects.read"))])
 def list_projects(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
@@ -35,7 +35,7 @@ def list_projects(
     return PaginatedProjects(total=total, page=page, page_size=page_size, items=items)
 
 
-@router.get("/{project_id}", response_model=ProjectOut)
+@router.get("/{project_id}", response_model=ProjectOut, dependencies=[Depends(require_permission("projects.read"))])
 def get_project(project_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return ProjectService(db).get_project(project_id)
 

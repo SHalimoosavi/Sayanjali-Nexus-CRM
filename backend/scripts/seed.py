@@ -23,7 +23,8 @@ VERTICALS = [
 ROLES = ["Founder", "Director", "Manager", "Sales", "Marketing", "Developer",
           "Support", "Finance", "HR", "Operations", "Guest"]
 
-MODULES = ["leads", "clients", "projects", "tasks", "invoices", "reports", "settings", "users"]
+MODULES = ["leads", "clients", "projects", "tasks", "invoices", "reports", "settings", "users",
+           "opportunities", "documents"]
 ACTIONS = ["create", "read", "update", "delete"]
 
 
@@ -54,11 +55,28 @@ def run():
                 db.refresh(role)
             role_objs[name] = role
 
-        # Founder & Director get everything; Sales gets leads/clients/projects
+        # Founder & Director get everything; every other role gets a
+        # deliberate, module-scoped slice reflecting how that role actually
+        # works day to day (Section 5 / 11 of the SDD). Nothing is implicit --
+        # a role with no entry here genuinely has zero access, by design.
         for name in ("Founder", "Director"):
             role_objs[name].permissions = list(perms.values())
-        role_objs["Sales"].permissions = [p for c, p in perms.items()
-                                            if c.startswith(("leads.", "clients.", "projects.read"))]
+
+        def grant(role_name: str, codes: list[str]) -> None:
+            role_objs[role_name].permissions = [perms[c] for c in codes if c in perms]
+
+        grant("Manager", [f"{m}.{a}" for m in ("leads", "clients", "projects", "tasks", "opportunities")
+                           for a in ("create", "read", "update")] + ["reports.read", "users.read"])
+        grant("Sales", [f"{m}.{a}" for m in ("leads", "clients", "opportunities") for a in ACTIONS]
+              + ["projects.read", "tasks.read", "tasks.create"])
+        grant("Marketing", ["leads.create", "leads.read", "leads.update", "reports.read", "clients.read"])
+        grant("Developer", [f"tasks.{a}" for a in ACTIONS] + ["projects.read", "projects.update", "documents.read"])
+        grant("Support", [f"tasks.{a}" for a in ACTIONS] + ["clients.read", "documents.read", "documents.create"])
+        grant("Finance", [f"invoices.{a}" for a in ACTIONS] + ["reports.read", "clients.read"])
+        grant("HR", ["users.read", "users.update", "settings.read"])
+        grant("Operations", ["projects.read", "tasks.read", "reports.read", "documents.read"])
+        # Guest: intentionally zero permissions -- true guest access must be
+        # granted per-user via `extra_permissions`, never inherited by default.
         db.commit()
 
         # Founder user

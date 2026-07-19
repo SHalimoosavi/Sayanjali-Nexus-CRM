@@ -35,19 +35,24 @@ cd ../electron && npm install && npm start
 
 ## What's implemented right now
 
-- Full database schema (35 tables) — Users/Roles/Permissions, Business Verticals, Clients/Contacts/Companies, Lead pipeline, Projects/Tasks, Meetings, Invoices/Payments, Tags, Attachments, Notifications, Audit Log
+- Full database schema (35 tables) — Users/Roles/Permissions, Business Verticals, Clients/Contacts/Companies, Lead pipeline, Projects/Tasks, Opportunities, Meetings, Invoices/Payments, Tags, Attachments, Notifications, Audit Log
 - Working Alembic migrations (`backend/alembic/versions/`)
-- JWT auth with refresh tokens + granular RBAC (`require_permission("leads.create")` style)
-- **Leads, Clients, and Projects/Tasks modules — fully working end-to-end** (API + repository/service layers + React UI), including two real business rules, not just CRUD:
+- JWT auth with refresh tokens + **granular RBAC that's actually enforced** — every list/get/create/update/delete endpoint checks a real permission, verified live: a zero-permission role gets 403 on everything, Founder/Director bypass cleanly, and each of the 11 roles gets a deliberate, module-scoped slice of access (see `scripts/seed.py`)
+- **Leads, Clients, Projects/Tasks, Opportunities, and Documents — fully working end-to-end** (API + repository/service layers + React UI where applicable), including real business rules, not just CRUD:
   - **Convert Lead → Client** in one click: carries the contact across, links the vertical, preserves the original lead's history
   - **Project progress auto-recalculates** from task completion — never hand-edited, can't drift out of sync
+  - **Winning an Opportunity auto-creates a starter Project** with the deal value carried over as budget
+  - **Documents** support polymorphic attachment to any entity with automatic versioning on re-upload
+- Automated test suite (`backend/tests/`, 9 passing tests) covering auth, RBAC at every tier, and the full Lead→Client→Project→Task lifecycle
 - Business Verticals module — add a new vertical as a data row, zero migrations
 - React + TypeScript + Tailwind frontend shell with sidebar nav, auth flow, dashboard, and an inline expandable task checklist on each project
-- Seed script with the company's 29 verticals, 11 roles, and granular permissions pre-loaded
+- Seed script with the company's 29 verticals, 11 fully-permissioned roles, and 40 granular permissions pre-loaded
+
+A full audit of Phases 1–2 was conducted before Phase 3 began — 8 findings (2 real bugs, an incomplete RBAC implementation, and a few consistency/onboarding issues) were found and fixed, each with a regression test. Full details in `docs/SDD.md` Section 5A.
 
 ## What's next (see roadmap in the SDD)
 
-Communications, Documents, Reporting, Opportunities, and Finance all follow the exact same backend pattern already proven by Leads/Clients/Projects (`model → schema → repository → service → router`) and the exact same frontend pattern (`api/*.ts → feature page`). See `CONTRIBUTING.md`.
+Communications, Reports, Team/Employee management, and the Finance API all follow the exact same backend pattern already proven five times over (`model → schema → repository → service → router`) and the exact same frontend pattern (`api/*.ts → feature page`). See `CONTRIBUTING.md`.
 
 ## Structure
 

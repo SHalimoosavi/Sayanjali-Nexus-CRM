@@ -20,7 +20,7 @@ def create_client(payload: ClientCreate, db: Session = Depends(get_db), current_
     return ClientService(db).create_client(payload.model_dump(), created_by=current_user.id)
 
 
-@router.get("", response_model=PaginatedClients)
+@router.get("", response_model=PaginatedClients, dependencies=[Depends(require_permission("clients.read"))])
 def list_clients(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
@@ -34,7 +34,7 @@ def list_clients(
     return PaginatedClients(total=total, page=page, page_size=page_size, items=items)
 
 
-@router.get("/{client_id}", response_model=ClientDetailOut)
+@router.get("/{client_id}", response_model=ClientDetailOut, dependencies=[Depends(require_permission("clients.read"))])
 def get_client(client_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     client = ClientService(db).get_client(client_id)
     return ClientDetailOut(

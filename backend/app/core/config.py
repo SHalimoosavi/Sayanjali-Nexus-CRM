@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     BACKUP_DIR: str = "./backups"
     AUTO_BACKUP_INTERVAL_HOURS: int = 24
 
+    # --- File storage (Documents module) ---
+    STORAGE_DIR: str = "./storage"
+    MAX_UPLOAD_SIZE_MB: int = 25
+
     # --- Pagination defaults ---
     DEFAULT_PAGE_SIZE: int = 25
     MAX_PAGE_SIZE: int = 200

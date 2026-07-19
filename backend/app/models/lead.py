@@ -4,7 +4,7 @@ stage a lead is in is validated against that vertical's
 `BusinessVertical.pipeline_stages` at the service layer (not the DB layer,
 to keep the schema stable as verticals evolve their funnels).
 """
-from sqlalchemy import Column, String, ForeignKey, Text, Numeric, Integer, DateTime, Boolean
+from sqlalchemy import Column, String, ForeignKey, Text, Numeric, Integer, DateTime, Boolean, JSON
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import BaseModel
@@ -38,7 +38,7 @@ class Lead(BaseModel):
     converted_client_id = Column(String(36), ForeignKey("clients.id"), nullable=True)
     is_converted = Column(Boolean, default=False)
 
-    custom_fields = Column(Text)  # JSON blob matching vertical.custom_fields_schema
+    custom_fields = Column(JSON, default=dict)  # matches vertical.custom_fields_schema shape
 
     notes = relationship("LeadNote", back_populates="lead")
     activities = relationship("LeadActivity", back_populates="lead")

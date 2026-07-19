@@ -65,10 +65,13 @@ class ProjectService:
         tasks = self.db.query(ProjectTask).filter(
             ProjectTask.project_id == project_id, ProjectTask.is_deleted.is_(False)
         ).all()
+        project = self.db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return
         if not tasks:
+            project.progress_percent = 0
+            self.db.commit()
             return
         done = sum(1 for t in tasks if t.status == "done")
-        project = self.db.query(Project).filter(Project.id == project_id).first()
-        if project:
-            project.progress_percent = round((done / len(tasks)) * 100)
-            self.db.commit()
+        project.progress_percent = round((done / len(tasks)) * 100)
+        self.db.commit()

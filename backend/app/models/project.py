@@ -66,7 +66,8 @@ class ProjectTask(BaseModel):
 
     project = relationship("Project", back_populates="tasks")
     comments = relationship("TaskComment", back_populates="task")
-    subtasks = relationship("ProjectTask", remote_side="ProjectTask.id")
+    parent_task = relationship("ProjectTask", remote_side="ProjectTask.id", back_populates="subtasks")
+    subtasks = relationship("ProjectTask", back_populates="parent_task")
 
 
 class TaskComment(BaseModel):

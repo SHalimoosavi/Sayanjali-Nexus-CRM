@@ -2,7 +2,7 @@
 
 **Prepared for:** Sayanjali Nexus Private Limited
 **Founder & Managing Director:** Syed Ali Hasan Moosavi
-**Status:** v0.1 — foundational architecture + working reference modules built and tested
+**Status:** v0.3 — Phase 1–2 audited and hardened; Phase 3 (Opportunities, Documents) built and tested
 
 ---
 
@@ -62,8 +62,28 @@ The CRM becomes the single operating surface for the Founder, Directors, and eve
 - Every write to a tracked entity should emit an `AuditLog` row (wired for Leads today via `LeadActivity`; generalize to `AuditLog` as more modules land — see Section 20).
 - **Converting a Lead to a Client** (built in Phase 2) creates the Client, carries the lead's contact details across as the primary `Contact`, links the originating `BusinessVertical`, and marks the Lead `is_converted=True` — the Lead row is never deleted, so its notes/activity history remain queryable.
 - **`Project.progress_percent` is never hand-edited.** It's derived server-side from `(completed tasks / total tasks)` any time a project-linked task's status changes, so the dashboard KPI can't drift out of sync with the task board.
+- **Winning an Opportunity linked to a Client auto-creates a starter Project** (carrying the vertical, client, and deal value across as the project's budget), mirroring the same "don't make the user re-type what the system already knows" principle as Lead-to-Client conversion.
 
 ---
+
+## 5A. Phase 1–2 Audit (conducted before Phase 3)
+
+Before building Opportunities and Documents, the existing codebase was audited rather than assumed correct — findings were confirmed empirically (runtime tests), not just by reading code. All were fixed and are now covered by automated regression tests (`backend/tests/`).
+
+| # | Finding | Severity | Fix |
+|---|---|---|---|
+| 1 | `ProjectTask.subtasks` self-referential relationship was inverted: a parent's `.subtasks` returned `None`, and a child's `.subtasks` accessor actually returned its *parent*. Confirmed via a runtime test before fixing. | Bug | Corrected `remote_side` placement onto a proper `parent_task` accessor; `subtasks` now correctly returns children. Regression test added. |
+| 2 | `POST /verticals` was gated behind a permission code (`settings.manage`) that the seed script never generates — no non-Founder/Director role could ever pass the check. | Bug | Changed to `settings.update`, which is actually seeded. |
+| 3 | Zero `.read` permission checks existed on any list/get endpoint (Leads/Clients/Projects/Tasks) — only "is logged in" was checked, while write endpoints *were* permission-gated. | Access-control gap | Added `require_permission("<module>.read")` to every list/get endpoint. |
+| 4 | Only 3 of the 11 roles defined in the schema (Founder, Director, Sales) had any permissions assigned in the seed script; the other 8 (Manager, Marketing, Developer, Support, Finance, HR, Operations, Guest) were empty shells that — combined with #3 — could read everything but write nothing. | Incomplete RBAC | `scripts/seed.py` now assigns a deliberate, module-scoped permission set per role reflecting how that role actually works; verified live that Guest (zero permissions) gets 403 on read+write, Founder bypasses cleanly, and Sales gets exactly its intended access. |
+| 5 | `ProjectService.recalculate_progress` left a stale `progress_percent` if a project's last remaining task was deleted (early-returned instead of resetting to 0). | Minor bug | Now resets to 0 when a project has no remaining tasks. Regression test added. |
+| 6 | `Lead.custom_fields` was a `Text` column while `BusinessVertical`'s equivalent fields were `JSON` — inconsistent typing for the same kind of data. | Consistency | Changed to `JSON`, fixed before Phase 3 added more JSON-shaped fields (avoiding a second migration churn). |
+| 7 | `tests/` was empty — all prior verification was manual, live-HTTP smoke testing. | Coverage gap | Added a pytest suite (`backend/tests/test_core_workflow.py`) covering auth, RBAC enforcement at every tier, the full Lead→Client→Project→Task lifecycle, and explicit regression tests for findings #1 and #5. All 9 tests pass. |
+| 8 | A fresh `git clone` → `alembic upgrade head` (the first command in `dev-setup.sh`) would fail because `backend/data/` doesn't exist yet and Git doesn't track empty directories. | Onboarding bug | `alembic/env.py` now creates the data directory before connecting; verified by simulating a fresh clone (deleting `data/` and re-running `alembic upgrade head`). `.gitkeep` added. |
+
+Noted but not changed: JWT access tokens are stored in `localStorage` on the frontend. This is a standard SPA trade-off (no backend session store to manage) and is an acceptable risk for a local-first, single-machine tool; flagged here for awareness if the product ever moves to a shared/hosted deployment.
+
+
 
 ## 6. Database Design
 
@@ -171,8 +191,15 @@ All endpoints live under `/api/v1`. Every list endpoint supports `page`/`page_si
 | PATCH | `/leads/{id}` | JWT | `leads.update` |
 | DELETE | `/leads/{id}` (soft) | JWT | `leads.delete` |
 | POST | `/leads/{id}/notes` | JWT | `leads.update` |
+| POST | `/opportunities` | JWT | `opportunities.create` |
+| GET | `/opportunities?vertical_id=&client_id=` | JWT | `opportunities.read` (returns `open_value_total`) |
+| POST | `/opportunities/{id}/mark-won` | JWT | `opportunities.update` (auto-creates a Project if client-linked) |
+| POST | `/opportunities/{id}/mark-lost?reason=` | JWT | `opportunities.update` |
+| POST | `/documents` (multipart) | JWT | `documents.create` |
+| GET | `/documents?entity_type=&entity_id=` | JWT | `documents.read` |
+| GET | `/documents/{id}/download` | JWT | `documents.read` |
 
-Every future module (Clients, Projects, Tasks, Invoices…) replicates this exact shape.
+Every future module (Communications, Reports, Finance API…) replicates this exact shape.
 
 ## 11. Module-by-Module Status
 
@@ -181,14 +208,14 @@ Every future module (Clients, Projects, Tasks, Invoices…) replicates this exac
 | 1 | Lead Management | **Built & tested** | Full CRUD, notes, activity timeline, pipeline stage validation, one-click convert-to-client |
 | 2 | Client Management | **Built & tested** | Full CRUD, nested contacts, vertical assignment, lead-conversion endpoint |
 | 3 | Contact Management | **Built & tested** | Nested under Clients (`/clients/{id}/contacts`); carried over automatically on lead conversion |
-| 4 | Opportunity Management | Schema done, API pending | `SalesOpportunity` model live |
+| 4 | Opportunity Management | **Built & tested** | Full CRUD + explicit mark-won/mark-lost actions; winning a client-linked opportunity auto-creates a starter Project |
 | 5 | Project Management | **Built & tested** | Full CRUD, stages, auto-recalculated progress from task completion |
 | 6 | Task Management | **Built & tested** | CRUD, comments, project-linked and standalone tasks, drives project progress |
 | 7 | Team Management | Schema done, API pending | `Team`, `team_members` live |
 | 8 | Employee Directory | Schema done, API pending | `Employee` model live |
 | 9 | Communication Center | Planned | Needs `EmailLog/CallLog/WhatsAppLog/SMSLog` tables (Section 20) |
 | 10 | Calendar | Partially modeled | `Meeting/MeetingNote` live; recurring events pending |
-| 11 | Documents | Schema done, API pending | `Attachment` (polymorphic, versioned) live |
+| 11 | Documents | **Built & tested** | Polymorphic upload/list/download on any entity, with automatic versioning on re-upload |
 | 12 | AI Assistant | Architecture reserved | See Section 21 |
 | 13 | Analytics | Planned | Reads existing tables, no new schema needed |
 | 14 | Reporting | Planned | CSV/Excel/PDF export layer |
@@ -201,7 +228,7 @@ Every future module (Clients, Projects, Tasks, Invoices…) replicates this exac
 | 21 | Service Catalog | Planned | Needs `Product/Service/ServiceCategory` tables |
 | 22 | Knowledge Base | Planned | |
 | 23 | Vendor Management | Planned | Needs `Vendor/PurchaseOrder` tables |
-| 24 | Finance Overview | Schema done, API pending | `Invoice/Payment` live |
+| 24 | Finance Overview | Schema done, API pending | `Invoice/Payment` live; can already attach documents via the Documents module |
 | 25 | File Manager | Overlaps with Documents | |
 | 26 | Backup Manager | Planned | See Section 16 |
 
@@ -233,18 +260,22 @@ sayanjali-crm/
 │   │   ├── core/        config.py, security.py, deps.py
 │   │   ├── db/           session.py, base_class.py
 │   │   ├── models/       identity.py, vertical.py, client.py, lead.py, project.py, common.py
-│   │   ├── schemas/      auth.py, lead.py
+│   │   ├── schemas/      auth.py, lead.py, client.py, project.py, opportunity.py, document.py
 │   │   ├── repositories/ base.py
-│   │   ├── services/     lead_service.py
-│   │   ├── api/v1/       auth.py, leads.py, verticals.py, __init__.py
+│   │   ├── services/     lead_service.py, client_service.py, project_service.py, task_service.py,
+│   │   │                 opportunity_service.py, document_service.py
+│   │   ├── api/v1/       auth.py, leads.py, verticals.py, clients.py, projects.py, tasks.py,
+│   │   │                 opportunities.py, documents.py, __init__.py
 │   │   └── main.py
 │   ├── alembic/          env.py, versions/
 │   ├── scripts/seed.py
+│   ├── storage/          uploaded documents (gitignored, .gitkeep tracked)
+│   ├── tests/             conftest.py, test_core_workflow.py
 │   ├── requirements.txt, .env.example
 ├── frontend/
 │   ├── src/
-│   │   ├── api/          client.ts, leads.ts
-│   │   ├── features/     auth/, leads/, dashboard/
+│   │   ├── api/          client.ts, leads.ts, clients.ts, projects.ts
+│   │   ├── features/     auth/, leads/, clients/, projects/, dashboard/
 │   │   ├── components/layout/AppLayout.tsx
 │   │   └── App.tsx, main.tsx, index.css
 │   ├── package.json, tailwind.config.js, vite.config.ts
@@ -265,9 +296,9 @@ SQLite's single-file nature makes this simple by design:
 
 ## 17. Testing Strategy
 
-- **Backend:** Pytest + httpx `TestClient` against an in-memory SQLite DB per test module. Pattern established: spin up `Base.metadata.create_all`, seed minimal fixtures, hit routers directly.
+- **Backend:** Pytest + FastAPI `TestClient` against an isolated in-memory SQLite DB (StaticPool-backed so the TestClient's request thread shares the same DB as the fixtures — a real gotcha worth documenting: SQLite `:memory:` is per-connection, and without `StaticPool` the app under test would see an empty database). Schema is dropped and recreated per test function for full isolation. Implemented and passing: `backend/tests/test_core_workflow.py` (9 tests) covering login success/failure, `.read` permission enforcement, Founder/Director RBAC bypass, the full Lead→Client→Project→Task lifecycle including both derived-data business rules, and explicit regression tests for the two bugs found in the Section 5A audit.
 - **Frontend:** Vitest for component/unit tests; Playwright for the critical E2E path (login → create lead → see it in the list) once more modules land.
-- **What's verified today (manually, in this build):** schema creation, Alembic autogeneration (35 tables, zero drift after Phase 2's service-layer additions), seed script, and a full live-HTTP regression covering: login → create lead → convert lead to client (contact carried over, vertical linked, lead preserved) → create project → create two tasks → mark one done → confirm project progress auto-recalculates to 50% → add a task comment. Frontend: `tsc` typecheck and a full Vite production build, both clean, for Leads/Clients/Projects/Dashboard.
+- **What's verified today:** everything above, plus a full live-HTTP smoke test covering: login → create lead → convert lead to client (contact carried over, vertical linked, lead preserved) → create client-linked opportunity → mark it won (auto-creates a starter Project with the deal value as budget) → confirm double-close is rejected → upload a document, re-upload the same filename (confirms version increments to 2) → download and verify byte-identical content. Frontend: `tsc` typecheck and a full Vite production build, both clean.
 
 ## 18. Security Design
 
@@ -326,7 +357,9 @@ Vertical scaling (more verticals, more data) is solved at the schema level today
 | 5 | Frontend (Leads + Dashboard reference) | ✅ Done |
 | 6 | Electron packaging | ✅ Scaffolded, untested on Windows hardware |
 | 6.5 | Clients, Projects, Tasks modules | ✅ Done — full CRUD + lead conversion + auto progress tracking |
-| 7 | Remaining modules (Communications, Documents, Reports, Opportunities, Finance) | 🔜 Next |
+| 6.8 | Phase 1–2 audit + fixes (8 findings resolved) | ✅ Done — see Section 5A |
+| 7 | Opportunities + Documents modules | ✅ Done — win/loss actions, auto-project-creation, versioned file uploads |
+| 7.5 | Remaining modules (Communications, Reports, Team/Employee, Finance API) | 🔜 Next |
 | 8 | AI integration | 🔜 Planned |
 | 9 | Optimization, automated backups, notifications scheduler | 🔜 Planned |
 | 10 | Production release | 🔜 Planned |

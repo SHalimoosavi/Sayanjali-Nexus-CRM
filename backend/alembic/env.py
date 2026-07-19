@@ -14,6 +14,16 @@ from app import models  # noqa: F401 -- registers all models on Base.metadata
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
+# Ensure the local SQLite data directory exists before Alembic tries to
+# connect -- on a fresh clone this directory doesn't exist yet (git doesn't
+# track empty dirs), and `alembic upgrade head` is the very first command
+# a new developer runs, so this must not depend on app.db.session having
+# been imported first.
+if settings.DATABASE_URL.startswith("sqlite"):
+    _db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    if _db_path != ":memory:":
+        Path(_db_path).parent.mkdir(parents=True, exist_ok=True)
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

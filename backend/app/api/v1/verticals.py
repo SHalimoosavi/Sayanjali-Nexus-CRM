@@ -15,7 +15,7 @@ def list_verticals(db: Session = Depends(get_db), current_user=Depends(get_curre
     ).order_by(BusinessVertical.display_order).all()
 
 
-@router.post("", dependencies=[Depends(require_permission("settings.manage"))])
+@router.post("", dependencies=[Depends(require_permission("settings.update"))])
 def create_vertical(
     name: str, slug: str, description: str = "", icon: str = "briefcase", color: str = "#6366F1",
     db: Session = Depends(get_db), current_user=Depends(get_current_user),
