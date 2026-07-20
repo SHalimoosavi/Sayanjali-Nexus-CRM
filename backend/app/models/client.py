@@ -58,6 +58,8 @@ class Client(BaseModel):
     contacts = relationship("Contact", back_populates="client")
     verticals = relationship("BusinessVertical", secondary=client_verticals)
     projects = relationship("Project", back_populates="client")
+    client_notes = relationship("ClientNote", back_populates="client")
+    activities = relationship("ClientActivity", back_populates="client")
 
 
 class Contact(BaseModel):
@@ -73,3 +75,22 @@ class Contact(BaseModel):
     notes = Column(Text)
 
     client = relationship("Client", back_populates="contacts")
+
+
+class ClientNote(BaseModel):
+    __tablename__ = "client_notes"
+    client_id = Column(String(36), ForeignKey("clients.id"), nullable=False)
+    note = Column(Text, nullable=False)
+
+    client = relationship("Client", back_populates="client_notes")
+
+
+class ClientActivity(BaseModel):
+    """Timeline of everything that happened to a client: status changes,
+    contacts added, conversion-from-lead, etc. -- mirrors LeadActivity."""
+    __tablename__ = "client_activities"
+    client_id = Column(String(36), ForeignKey("clients.id"), nullable=False)
+    activity_type = Column(String(50), nullable=False)  # created, status_change, contact_added, note
+    description = Column(Text)
+
+    client = relationship("Client", back_populates="activities")

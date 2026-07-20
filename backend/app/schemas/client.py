@@ -100,3 +100,23 @@ class PaginatedClients(BaseModel):
     page: int
     page_size: int
     items: list[ClientOut]
+
+
+class ClientNoteCreate(BaseModel):
+    note: str
+
+
+class ClientNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    note: str
+    created_by: Optional[str] = None
+    created_at: datetime
+
+
+class ClientActivityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    activity_type: str
+    description: Optional[str] = None
+    created_at: datetime

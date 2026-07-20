@@ -48,3 +48,32 @@ export const addContact = async (clientId: string, payload: Partial<Contact>) =>
   const { data } = await api.post(`/clients/${clientId}/contacts`, payload);
   return data as Contact;
 };
+
+export interface ClientNote {
+  id: string;
+  note: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface ClientActivity {
+  id: string;
+  activity_type: string;
+  description?: string;
+  created_at: string;
+}
+
+export const fetchClientNotes = async (clientId: string): Promise<ClientNote[]> => {
+  const { data } = await api.get(`/clients/${clientId}/notes`);
+  return data;
+};
+
+export const addClientNote = async (clientId: string, note: string): Promise<ClientNote> => {
+  const { data } = await api.post(`/clients/${clientId}/notes`, { note });
+  return data;
+};
+
+export const fetchClientTimeline = async (clientId: string): Promise<ClientActivity[]> => {
+  const { data } = await api.get(`/clients/${clientId}/timeline`);
+  return data;
+};

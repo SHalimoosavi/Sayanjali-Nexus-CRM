@@ -4,6 +4,10 @@ Client service layer.
 Owns the one piece of real business logic outside plain CRUD: converting a
 qualified Lead into a Client (Section 5 of the SDD — the Lead record is
 never deleted, only marked converted, preserving its activity history).
+
+Also logs a ClientActivity row on creation, status changes, and contact
+additions, and exposes ClientNote CRUD -- the same timeline/notes pattern
+already proven on Leads.
 """
 import uuid
 from typing import Optional
@@ -11,7 +15,7 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.client import Client, Contact
+from app.models.client import Client, Contact, ClientNote, ClientActivity
 from app.models.vertical import BusinessVertical
 from app.models.lead import Lead
 from app.repositories.base import BaseRepository
@@ -31,6 +35,7 @@ class ClientService:
         data["created_by"] = created_by
         client = self.repo.create(data)
         self._set_verticals(client, vertical_ids)
+        self._log_activity(client.id, "created", f"Client created: {client.display_name}")
         return client
 
     def list_clients(self, page: int, page_size: int, status_filter: Optional[str] = None,
@@ -49,10 +54,13 @@ class ClientService:
     def update_client(self, client_id: str, updates: dict, updated_by: str) -> Client:
         vertical_ids = updates.pop("vertical_ids", None)
         client = self.get_client(client_id)
+        old_status = client.status
         updates["updated_by"] = updated_by
         client = self.repo.update(client, updates)
         if vertical_ids is not None:
             self._set_verticals(client, vertical_ids)
+        if updates.get("status") and updates["status"] != old_status:
+            self._log_activity(client.id, "status_change", f"Status changed: {old_status} -> {client.status}")
         return client
 
     def delete_client(self, client_id: str) -> None:
@@ -69,6 +77,7 @@ class ClientService:
         self.db.add(contact)
         self.db.commit()
         self.db.refresh(contact)
+        self._log_activity(client_id, "contact_added", f"Contact added: {contact.first_name} {contact.last_name or ''}".strip())
         return contact
 
     def update_contact(self, client_id: str, contact_id: str, updates: dict, updated_by: str) -> Contact:
@@ -86,6 +95,34 @@ class ClientService:
         self.db.commit()
         self.db.refresh(contact)
         return contact
+
+    # --- Notes & timeline (mirrors LeadService) ---
+
+    def list_notes(self, client_id: str) -> list[ClientNote]:
+        self.get_client(client_id)
+        return (
+            self.db.query(ClientNote)
+            .filter(ClientNote.client_id == client_id, ClientNote.is_deleted.is_(False))
+            .order_by(ClientNote.created_at.desc())
+            .all()
+        )
+
+    def add_note(self, client_id: str, note: str, created_by: str) -> ClientNote:
+        self.get_client(client_id)
+        note_obj = ClientNote(client_id=client_id, note=note, created_by=created_by)
+        self.db.add(note_obj)
+        self.db.commit()
+        self.db.refresh(note_obj)
+        return note_obj
+
+    def list_timeline(self, client_id: str) -> list[ClientActivity]:
+        self.get_client(client_id)
+        return (
+            self.db.query(ClientActivity)
+            .filter(ClientActivity.client_id == client_id)
+            .order_by(ClientActivity.created_at.desc())
+            .all()
+        )
 
     # --- Lead -> Client conversion ---
 
@@ -105,6 +142,7 @@ class ClientService:
             },
             created_by=created_by,
         )
+        self._log_activity(client.id, "converted_from_lead", f"Converted from lead '{lead.full_name}'")
 
         # Carry the lead's primary contact across so the relationship isn't lost.
         self.add_contact(
@@ -143,3 +181,7 @@ class ClientService:
         client.verticals = verticals
         self.db.commit()
         self.db.refresh(client)
+
+    def _log_activity(self, client_id: str, activity_type: str, description: str) -> None:
+        self.db.add(ClientActivity(client_id=client_id, activity_type=activity_type, description=description))
+        self.db.commit()

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchClients, createClient, Client } from "../../api/clients";
 import { Plus, X, Building2 } from "lucide-react";
+import ClientDetailDrawer from "./ClientDetailDrawer";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-good/10 text-good border-good/20",
@@ -11,6 +12,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ClientsPage() {
   const [showModal, setShowModal] = useState(false);
+  const [activeClient, setActiveClient] = useState<Client | null>(null);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -50,7 +52,11 @@ export default function ClientsPage() {
           </p>
         )}
         {data?.items?.map((c: Client) => (
-          <div key={c.id} className="bg-surface border border-border rounded-lg p-5 hover:border-brass/30 transition-colors">
+          <button
+            key={c.id}
+            onClick={() => setActiveClient(c)}
+            className="text-left bg-surface border border-border rounded-lg p-5 hover:border-brass/30 transition-colors"
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="w-9 h-9 rounded-md bg-brass/10 flex items-center justify-center text-brass">
                 <Building2 size={16} />
@@ -61,7 +67,7 @@ export default function ClientsPage() {
             </div>
             <div className="text-white font-medium mb-0.5">{c.display_name}</div>
             <div className="text-xs text-muted font-mono">{c.client_code}</div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -72,6 +78,8 @@ export default function ClientsPage() {
           submitting={createMutation.isPending}
         />
       )}
+
+      {activeClient && <ClientDetailDrawer clientRecord={activeClient} onClose={() => setActiveClient(null)} />}
     </div>
   );
 }

@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.identity import User
 from app.schemas.client import (
     ClientCreate, ClientUpdate, ClientOut, ClientDetailOut, PaginatedClients,
-    ContactCreate, ContactUpdate, ContactOut,
+    ContactCreate, ContactUpdate, ContactOut, ClientNoteCreate, ClientNoteOut, ClientActivityOut,
 )
 from app.services.client_service import ClientService
 
@@ -72,6 +72,27 @@ def update_contact(client_id: str, contact_id: str, payload: ContactUpdate, db: 
     service = ClientService(db)
     return service.update_contact(client_id, contact_id, payload.model_dump(exclude_unset=True),
                                     updated_by=current_user.id)
+
+
+# --- Notes & timeline (mirrors Leads) ---
+
+@router.get("/{client_id}/notes", response_model=list[ClientNoteOut],
+            dependencies=[Depends(require_permission("clients.read"))])
+def list_client_notes(client_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return ClientService(db).list_notes(client_id)
+
+
+@router.post("/{client_id}/notes", response_model=ClientNoteOut, status_code=201,
+             dependencies=[Depends(require_permission("clients.update"))])
+def add_client_note(client_id: str, payload: ClientNoteCreate, db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user)):
+    return ClientService(db).add_note(client_id, payload.note, created_by=current_user.id)
+
+
+@router.get("/{client_id}/timeline", response_model=list[ClientActivityOut],
+            dependencies=[Depends(require_permission("clients.read"))])
+def list_client_timeline(client_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return ClientService(db).list_timeline(client_id)
 
 
 # --- Lead conversion ---

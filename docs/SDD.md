@@ -94,9 +94,9 @@ Noted but not changed: JWT access tokens are stored in `localStorage` on the fro
 - **Polymorphic tagging & attachments** (`entity_type` + `entity_id`) instead of one join table per entity — Tags and Attachments work identically on Leads, Clients, Projects, Tasks, Invoices.
 - **No per-vertical tables.** `business_verticals.pipeline_stages` (JSON) and `custom_fields_schema` (JSON) let each vertical define its own funnel and extra fields without schema changes.
 
-### 6.2 Implemented tables (35, live in `backend/alembic/versions/`)
+### 6.2 Implemented tables (37, live in `backend/alembic/versions/`)
 
-`users · roles · permissions · role_permissions · user_permissions · departments · teams · team_members · employees · business_verticals · companies · company_branches · clients · client_verticals · contacts · lead_sources · leads · lead_notes · lead_activities · sales_opportunities · projects · project_stages · project_tasks · task_comments · project_team_members · tags · entity_tags · attachments · notifications · reminders · audit_logs · meetings · meeting_notes · invoices · payments`
+`users · roles · permissions · role_permissions · user_permissions · departments · teams · team_members · employees · business_verticals · companies · company_branches · clients · client_verticals · client_notes · client_activities · contacts · lead_sources · leads · lead_notes · lead_activities · sales_opportunities · projects · project_stages · project_tasks · task_comments · project_team_members · tags · entity_tags · attachments · notifications · reminders · audit_logs · meetings · meeting_notes · invoices · payments`
 
 ### 6.3 ER Diagram (core relationships)
 
@@ -206,7 +206,7 @@ Every future module (Communications, Reports, Finance API…) replicates this ex
 | # | Module | Status | Notes |
 |---|---|---|---|
 | 1 | Lead Management | **Built & tested** | Full CRUD, notes (list+create), full timeline exposure, pipeline stage validation, one-click convert-to-client, **duplicate detection (phone/email, with force-override), CSV import (skips duplicates, reports row errors) and export, bulk update (stage/assign) and bulk delete** |
-| 2 | Client Management | **Built & tested** | Full CRUD, nested contacts, vertical assignment, lead-conversion endpoint |
+| 2 | Client Management | **Built & tested** | Full CRUD, nested contacts, vertical assignment, lead-conversion endpoint, **notes (list+create) and full activity timeline logging creation/status-changes/contact-additions/lead-conversion** |
 | 3 | Contact Management | **Built & tested** | Nested under Clients (`/clients/{id}/contacts`); carried over automatically on lead conversion |
 | 4 | Opportunity Management | **Built & tested** | Full CRUD + explicit mark-won/mark-lost actions; winning a client-linked opportunity auto-creates a starter Project |
 | 5 | Project Management | **Built & tested** | Full CRUD, stages, auto-recalculated progress from task completion |
@@ -417,8 +417,8 @@ This is the full scope requested for the CRM's maturity path beyond the initial 
 | Clients | Contact persons | ✅ Done (Phase 1–2) |
 | Clients | Addresses | ✅ Done (`CompanyBranch` model, Phase 1) |
 | Clients | Contracts | ✅ Done (Documents module, `category="contract"`, `entity_type=client`) |
-| Clients | Client notes | 🔜 Not started — needs a `ClientNote` model + migration (mirrors `LeadNote`) |
-| Clients | Client timeline | 🔜 Not started — needs a `ClientActivity` model + migration (mirrors `LeadActivity`) |
+| Clients | Client notes | ✅ Done — `GET`/`POST /clients/{id}/notes`, mirrors Leads exactly |
+| Clients | Client timeline | ✅ Done — `ClientActivity` logs creation, status changes, contact additions, and lead-conversion, via `GET /clients/{id}/timeline` |
 | Projects | Kanban board | 🔜 Not started (frontend — stage-based drag/drop over existing `ProjectStage` data) |
 | Projects | Gantt chart | 🔜 Not started |
 | Projects | Milestones | ✅ Done (`ProjectStage`, Phase 1) — no dedicated Gantt view yet |

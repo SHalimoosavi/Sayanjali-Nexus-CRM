@@ -2,8 +2,16 @@
 Initial data seed: system roles, core permissions, the Founder user
 (Syed Ali Hasan Moosavi), and the starting set of business verticals.
 
-Run with:  python scripts_seed.py   (from backend/ with venv active)
+Run with:  python scripts/seed.py   (from backend/ with venv active)
+Works on Windows/macOS/Linux without needing PYTHONPATH set manually --
+the sys.path fix below mirrors the same pattern already used in
+tests/conftest.py.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from app.db.base_class import Base
 from app.db.session import engine, SessionLocal
 from app.core.security import hash_password

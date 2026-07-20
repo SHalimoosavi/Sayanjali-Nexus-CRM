@@ -1,8 +1,8 @@
-"""initial schema
+"""add client notes and activity timeline
 
-Revision ID: e95500714c81
+Revision ID: f97a6efe5a62
 Revises: 
-Create Date: 2026-07-19 06:33:47.763744
+Create Date: 2026-07-19 20:09:40.722692
 
 """
 from typing import Sequence, Union
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'e95500714c81'
+revision: str = 'f97a6efe5a62'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -374,6 +374,37 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('user_id', 'permission_id')
     )
+    op.create_table('client_activities',
+    sa.Column('client_id', sa.String(length=36), nullable=False),
+    sa.Column('activity_type', sa.String(length=50), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_by', sa.String(length=36), nullable=True),
+    sa.Column('updated_by', sa.String(length=36), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ),
+    sa.ForeignKeyConstraint(['created_by'], ['users.id'], name='fk_client_activities_created_by', use_alter=True),
+    sa.ForeignKeyConstraint(['updated_by'], ['users.id'], name='fk_client_activities_updated_by', use_alter=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('client_notes',
+    sa.Column('client_id', sa.String(length=36), nullable=False),
+    sa.Column('note', sa.Text(), nullable=False),
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('created_by', sa.String(length=36), nullable=True),
+    sa.Column('updated_by', sa.String(length=36), nullable=True),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['client_id'], ['clients.id'], ),
+    sa.ForeignKeyConstraint(['created_by'], ['users.id'], name='fk_client_notes_created_by', use_alter=True),
+    sa.ForeignKeyConstraint(['updated_by'], ['users.id'], name='fk_client_notes_updated_by', use_alter=True),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('client_verticals',
     sa.Column('client_id', sa.String(length=36), nullable=False),
     sa.Column('vertical_id', sa.String(length=36), nullable=False),
@@ -664,6 +695,8 @@ def downgrade() -> None:
     op.drop_table('leads')
     op.drop_table('contacts')
     op.drop_table('client_verticals')
+    op.drop_table('client_notes')
+    op.drop_table('client_activities')
     op.drop_table('user_permissions')
     op.drop_table('team_members')
     op.drop_table('reminders')
